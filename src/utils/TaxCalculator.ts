@@ -57,16 +57,54 @@ export class TaxCalculator {
   }
 
   /**
+   * 住宅ローン控除を計算
+   * @param loanBalance 住宅ローン残高
+   * @returns 住宅ローン控除額の内訳
+   */
+  private static calculateHousingLoanDeduction(loanBalance: number): {
+    totalDeduction: number;
+    incomeTaxDeduction: number;
+    residentTaxDeduction: number;
+    formula: string;
+  } {
+    if (loanBalance <= 0) {
+      return {
+        totalDeduction: 0,
+        incomeTaxDeduction: 0,
+        residentTaxDeduction: 0,
+        formula: "住宅ローン控除 = 0（住宅ローンなし）"
+      };
+    }
+
+    // 控除額の計算（住宅ローン残高の1%、上限40万円）
+    const totalDeduction = Math.min(400_000, Math.floor(loanBalance * 0.01));
+    
+    return {
+      totalDeduction,
+      incomeTaxDeduction: totalDeduction,  // 所得税からの控除額（実際の適用は所得税額を上限とする）
+      residentTaxDeduction: Math.min(136_500, totalDeduction),  // 住民税からの控除可能額（上限13.65万円）
+      formula: `住宅ローン控除額 = min(400,000, ${loanBalance.toLocaleString()}円 × 1%) = ${totalDeduction.toLocaleString()}円`
+    };
+  }
+
+  /**
    * 所得税額を計算
    * @param salary 年間給与収入
    * @param medicalExpenses 年間医療費
+   * @param loanBalance 住宅ローン残高
    * @returns 所得税額（復興特別所得税を含む）
    */
-  public static calculateIncomeTax(salary: number, medicalExpenses: number = 0): {
+  public static calculateIncomeTax(salary: number, medicalExpenses: number = 0, loanBalance: number = 0): {
     tax: number;
     medicalDeduction: {
       deduction: number;
       threshold: number;
+      formula: string;
+    };
+    housingLoanDeduction: {
+      totalDeduction: number;
+      incomeTaxDeduction: number;
+      residentTaxDeduction: number;
       formula: string;
     };
   } {
@@ -99,10 +137,16 @@ export class TaxCalculator {
       tax = taxableIncomeAfterDeductions * 0.45 - 4_796_000;
     }
 
-    // 復興特別所得税を加算（所得税額の2.1%）
+    // 住宅ローン控除を計算
+    const housingLoanDeduction = this.calculateHousingLoanDeduction(loanBalance);
+    
+    // 所得税から控除（控除額は所得税額が上限）
+    const finalTax = Math.max(0, Math.floor(tax * 1.021) - housingLoanDeduction.incomeTaxDeduction);
+    
     return {
-      tax: Math.floor(tax * 1.021),
-      medicalDeduction
+      tax: finalTax,
+      medicalDeduction,
+      housingLoanDeduction
     };
   }
 
@@ -110,9 +154,19 @@ export class TaxCalculator {
    * 住民税額を計算（均等割含む）
    * @param salary 年間給与収入
    * @param medicalExpenses 年間医療費
+   * @param loanBalance 住宅ローン残高
+   * @param incomeTaxDeduction 所得税で控除された住宅ローン控除額
    * @returns 住民税額
    */
-  public static calculateResidentTax(salary: number, medicalExpenses: number = 0): number {
+  public static calculateResidentTax(
+    salary: number, 
+    medicalExpenses: number = 0, 
+    loanBalance: number = 0,
+    incomeTaxDeduction: number = 0
+  ): {
+    tax: number;
+    housingLoanDeduction: number;
+  } {
     // 給与所得控除を適用
     const salaryDeduction = this.calculateSalaryDeduction(salary);
     // 給与所得
@@ -125,8 +179,15 @@ export class TaxCalculator {
     // 所得割の計算（標準税率：都道府県民税4%、市町村民税6%の合計10%）
     const incomeTax = taxableIncomeAfterDeductions * 0.1;
 
-    // 均等割額を加算（標準額：都道府県民税1,500円、市町村民税3,500円の合計5,000円）
-    return Math.floor(incomeTax + 5_000);
+    // 住宅ローン控除の住民税への振り替え
+    const housingLoanDeduction = this.calculateHousingLoanDeduction(loanBalance);
+    const remainingDeduction = Math.max(0, housingLoanDeduction.totalDeduction - incomeTaxDeduction);
+    const residentTaxDeduction = Math.min(housingLoanDeduction.residentTaxDeduction, remainingDeduction);
+
+    return {
+      tax: Math.max(0, Math.floor(incomeTax + 5_000) - residentTaxDeduction),
+      housingLoanDeduction: residentTaxDeduction
+    };
   }
 
   /**
@@ -238,12 +299,50 @@ export class TaxCalculator {
   }
 
   /**
+   * ふるさと納税の限度額を計算
+   * @param salary 年間給与収入
+   * @param medicalExpenses 年間医療費
+   * @returns ふるさと納税の限度額と計算式
+   */
+  public static calculateFurusatoNozeiLimit(salary: number, medicalExpenses: number = 0): {
+    limit: number;
+    formula: string;
+  } {
+    // 給与所得控除を適用
+    const salaryDeduction = this.calculateSalaryDeduction(salary);
+    // 給与所得
+    const taxableIncome = salary - salaryDeduction;
+    // 医療費控除を計算
+    const medicalDeduction = this.calculateMedicalDeduction(medicalExpenses, taxableIncome);
+
+    // 所得税の課税所得金額（基礎控除48万円）
+    const incomeTaxBase = Math.max(0, taxableIncome - 480_000 - medicalDeduction.deduction);
+    // 住民税の課税所得金額（基礎控除43万円）
+    const residentTaxBase = Math.max(0, taxableIncome - 430_000 - medicalDeduction.deduction);
+
+    // 限度額の計算
+    const incomeTaxPortion = incomeTaxBase * 0.2;
+    const residentTaxPortion = residentTaxBase * 0.016;
+    const limit = Math.floor((incomeTaxPortion + residentTaxPortion) * 5);
+
+    return {
+      limit,
+      formula: `ふるさと納税の限度額 = (所得税の課税所得金額(${incomeTaxBase.toLocaleString()}円) × 20% + 住民税の課税所得金額(${residentTaxBase.toLocaleString()}円) × 1.6%) × 5 = ${limit.toLocaleString()}円`
+    };
+  }
+
+  /**
    * 年収から手取り額を計算
    * @param salary 年間給与収入
    * @param medicalExpenses 年間医療費
+   * @param loanBalance 住宅ローン残高
    * @returns 手取り額（概算）
    */
-  public static calculateNetIncome(salary: number, medicalExpenses: number = 0): {
+  public static calculateNetIncome(
+    salary: number, 
+    medicalExpenses: number = 0,
+    loanBalance: number = 0
+  ): {
     salary: number;
     incomeTax: number;
     residentTax: number;
@@ -260,11 +359,27 @@ export class TaxCalculator {
       threshold: number;
       formula: string;
     };
+    housingLoan: {
+      balance: number;
+      deduction: {
+        total: number;
+        incomeTax: number;
+        residentTax: number;
+        formula: string;
+      };
+    };
+    furusatoNozei: {
+      limit: number;
+      formula: string;
+    };
     netIncome: number;
   } {
-    const { tax: incomeTax, medicalDeduction } = this.calculateIncomeTax(salary, medicalExpenses);
-    const residentTax = this.calculateResidentTax(salary, medicalExpenses);
+    const { tax: incomeTax, medicalDeduction, housingLoanDeduction } = 
+      this.calculateIncomeTax(salary, medicalExpenses, loanBalance);
+    const { tax: residentTax, housingLoanDeduction: residentTaxDeduction } = 
+      this.calculateResidentTax(salary, medicalExpenses, loanBalance, housingLoanDeduction.incomeTaxDeduction);
     const insurance = this.calculateInsurance(salary);
+    const furusatoNozei = this.calculateFurusatoNozeiLimit(salary, medicalExpenses);
     
     return {
       salary,
@@ -273,6 +388,16 @@ export class TaxCalculator {
       insurance,
       medicalExpenses,
       medicalDeduction,
+      housingLoan: {
+        balance: loanBalance,
+        deduction: {
+          total: housingLoanDeduction.totalDeduction,
+          incomeTax: housingLoanDeduction.incomeTaxDeduction,
+          residentTax: residentTaxDeduction,
+          formula: housingLoanDeduction.formula
+        }
+      },
+      furusatoNozei,
       netIncome: salary - incomeTax - residentTax - insurance.total
     };
   }

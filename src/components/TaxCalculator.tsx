@@ -181,6 +181,7 @@ const InsuranceItem = styled.div`
 export const TaxCalculator: React.FC = () => {
   const [annualSalary, setAnnualSalary] = useState<number>(0);
   const [medicalExpenses, setMedicalExpenses] = useState<number>(0);
+  const [loanBalance, setLoanBalance] = useState<number>(0);
 
   const calculateDeduction = (salary: number): { 
     deduction: number, 
@@ -224,7 +225,7 @@ export const TaxCalculator: React.FC = () => {
     }
   };
 
-  const result = annualSalary > 0 ? TaxCalculatorUtil.calculateNetIncome(annualSalary, medicalExpenses) : null;
+  const result = annualSalary > 0 ? TaxCalculatorUtil.calculateNetIncome(annualSalary, medicalExpenses, loanBalance) : null;
   const deductionCalc = annualSalary > 0 ? calculateDeduction(annualSalary) : null;
 
   const getIncomeTaxRate = (taxableIncome: number): {
@@ -280,6 +281,20 @@ export const TaxCalculator: React.FC = () => {
           />
           <Currency>円</Currency>
         </InputWrapper>
+
+        <Label htmlFor="loan" style={{ marginTop: '1rem' }}>住宅ローン残高</Label>
+        <InputWrapper>
+          <Input
+            id="loan"
+            type="number"
+            value={loanBalance}
+            onChange={(e) => setLoanBalance(Number(e.target.value))}
+            min={0}
+            step={100000}
+            placeholder="住宅ローン残高を入力してください"
+          />
+          <Currency>円</Currency>
+        </InputWrapper>
       </InputSection>
 
       {result && deductionCalc && (
@@ -297,13 +312,35 @@ export const TaxCalculator: React.FC = () => {
                   <Value>{formatCurrency(result.medicalDeduction.deduction)}</Value>
                 </ResultItem>
               )}
+              {result.housingLoan.balance > 0 && (
+                <ResultItem>
+                  <span>住宅ローン控除（合計）:</span>
+                  <Value>{formatCurrency(result.housingLoan.deduction.total)}</Value>
+                </ResultItem>
+              )}
               <ResultItem>
                 <span>所得税（復興特別所得税込）:</span>
                 <Value>{formatCurrency(result.incomeTax)}</Value>
               </ResultItem>
+              {result.housingLoan.balance > 0 && (
+                <ResultItem>
+                  <span>（うち住宅ローン控除分）:</span>
+                  <Value>{formatCurrency(result.housingLoan.deduction.incomeTax)}</Value>
+                </ResultItem>
+              )}
               <ResultItem>
                 <span>住民税（均等割含む）:</span>
                 <Value>{formatCurrency(result.residentTax)}</Value>
+              </ResultItem>
+              {result.housingLoan.balance > 0 && (
+                <ResultItem>
+                  <span>（うち住宅ローン控除分）:</span>
+                  <Value>{formatCurrency(result.housingLoan.deduction.residentTax)}</Value>
+                </ResultItem>
+              )}
+              <ResultItem>
+                <span>ふるさと納税の限度額:</span>
+                <Value>{formatCurrency(result.furusatoNozei.limit)}</Value>
               </ResultItem>
               <ResultItem>
                 <span>社会保険料（合計）:</span>
@@ -403,7 +440,14 @@ export const TaxCalculator: React.FC = () => {
             </ProcessStep>
 
             <ProcessStep>
-              <h4>{result.medicalExpenses > 0 ? '7' : '6'}. 社会保険料の計算</h4>
+              <h4>{result.medicalExpenses > 0 ? '7' : '6'}. ふるさと納税の限度額計算</h4>
+              <Formula>
+                {result.furusatoNozei.formula}
+              </Formula>
+            </ProcessStep>
+
+            <ProcessStep>
+              <h4>{result.medicalExpenses > 0 ? '8' : '7'}. 社会保険料の計算</h4>
               <Formula>
                 標準報酬月額: {formatCurrency(result.insurance.standardMonthlyRemuneration)}
                 <br />
@@ -418,13 +462,28 @@ export const TaxCalculator: React.FC = () => {
             </ProcessStep>
 
             <ProcessStep>
-              <h4>{result.medicalExpenses > 0 ? '8' : '7'}. 手取り額の計算</h4>
+              <h4>{result.medicalExpenses > 0 ? '9' : '8'}. 手取り額の計算</h4>
               <Formula>
                 手取り額 = 年収 - 所得税 - 住民税 - 社会保険料合計
                 <br />
                 {formatCurrency(annualSalary)} - {formatCurrency(result.incomeTax)} - {formatCurrency(result.residentTax)} - {formatCurrency(result.insurance.total)} = {formatCurrency(result.netIncome)}
               </Formula>
             </ProcessStep>
+
+            {result.housingLoan.balance > 0 && (
+              <ProcessStep>
+                <h4>{result.medicalExpenses > 0 ? '4' : '3'}. 住宅ローン控除の計算</h4>
+                <Formula>
+                  {result.housingLoan.deduction.formula}
+                  <br />
+                  所得税からの控除額: {formatCurrency(result.housingLoan.deduction.incomeTax)}
+                  <br />
+                  住民税からの控除額: {formatCurrency(result.housingLoan.deduction.residentTax)}
+                  <br />
+                  ※ 所得税から控除しきれない額を住民税から控除（上限13.65万円）
+                </Formula>
+              </ProcessStep>
+            )}
           </CalculationProcess>
 
           <Note>
@@ -435,6 +494,9 @@ export const TaxCalculator: React.FC = () => {
             <br />・厚生年金保険料率：18.3%
             <br />・雇用保険料率：0.9%（一般の事業の場合）
             <br />・医療費控除は実額控除方式（セルフメディケーション税制は考慮していません）
+            <br />・住宅ローン控除は借入残高の1%（上限40万円）
+            <br />・住宅ローン控除の住民税控除部分は上限13.65万円
+            <br />・ふるさと納税の限度額は、所得税と住民税の課税所得金額をもとに計算しています
             <br />・特別な控除や減税は考慮していません
           </Note>
         </>
