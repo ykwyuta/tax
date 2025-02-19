@@ -131,6 +131,24 @@ const Formula = styled.div`
   border-radius: 4px;
 `;
 
+const InsuranceDetails = styled.div`
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #f0f2f5;
+  border-radius: 4px;
+`;
+
+const InsuranceItem = styled.div`
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  
+  &:not(:last-child) {
+    border-bottom: 1px solid #ddd;
+  }
+`;
+
 export const TaxCalculator: React.FC = () => {
   const [annualSalary, setAnnualSalary] = useState<number>(0);
 
@@ -237,8 +255,30 @@ export const TaxCalculator: React.FC = () => {
                 <span>住民税（均等割含む）:</span>
                 <Value>{formatCurrency(result.residentTax)}</Value>
               </ResultItem>
+              <ResultItem>
+                <span>社会保険料（合計）:</span>
+                <Value>{formatCurrency(result.insurance.total)}</Value>
+              </ResultItem>
+              <InsuranceDetails>
+                <InsuranceItem>
+                  <span>健康保険料（労働者負担分）:</span>
+                  <Value>{formatCurrency(result.insurance.healthInsurance)}</Value>
+                </InsuranceItem>
+                <InsuranceItem>
+                  <span>厚生年金保険料（労働者負担分）:</span>
+                  <Value>{formatCurrency(result.insurance.pensionInsurance)}</Value>
+                </InsuranceItem>
+                <InsuranceItem>
+                  <span>雇用保険料:</span>
+                  <Value>{formatCurrency(result.insurance.employmentInsurance)}</Value>
+                </InsuranceItem>
+                <InsuranceItem>
+                  <span>標準報酬月額:</span>
+                  <Value>{formatCurrency(result.insurance.standardMonthlyRemuneration)}</Value>
+                </InsuranceItem>
+              </InsuranceDetails>
               <ResultItem isTotal>
-                <span>手取り額（概算）:</span>
+                <span>手取り額:</span>
                 <Value>{formatCurrency(result.netIncome)}</Value>
               </ResultItem>
             </ResultGrid>
@@ -302,20 +342,26 @@ export const TaxCalculator: React.FC = () => {
             </ProcessStep>
 
             <ProcessStep>
-              <h4>6. 社会保険料の概算</h4>
+              <h4>6. 社会保険料の計算</h4>
               <Formula>
-                社会保険料 = 年収 × 15%（概算）
+                標準報酬月額: {formatCurrency(result.insurance.standardMonthlyRemuneration)}
                 <br />
-                {formatCurrency(annualSalary)} × 15% = {formatCurrency(Math.floor(annualSalary * 0.15))}
+                健康保険料（労働者負担分 4.905%）= {formatCurrency(result.insurance.standardMonthlyRemuneration)} × 4.905% × 12 = {formatCurrency(result.insurance.healthInsurance)}
+                <br />
+                厚生年金保険料（労働者負担分 9.15%）= {formatCurrency(result.insurance.standardMonthlyRemuneration)} × 9.15% × 12 = {formatCurrency(result.insurance.pensionInsurance)}
+                <br />
+                雇用保険料（0.9%）= {formatCurrency(annualSalary)} × 0.9% = {formatCurrency(result.insurance.employmentInsurance)}
+                <br />
+                社会保険料合計 = {formatCurrency(result.insurance.total)}
               </Formula>
             </ProcessStep>
 
             <ProcessStep>
               <h4>7. 手取り額の計算</h4>
               <Formula>
-                手取り額 = 年収 - 所得税 - 住民税 - 社会保険料
+                手取り額 = 年収 - 所得税 - 住民税 - 社会保険料合計
                 <br />
-                {formatCurrency(annualSalary)} - {formatCurrency(result.incomeTax)} - {formatCurrency(result.residentTax)} - {formatCurrency(Math.floor(annualSalary * 0.15))} = {formatCurrency(result.netIncome)}
+                {formatCurrency(annualSalary)} - {formatCurrency(result.incomeTax)} - {formatCurrency(result.residentTax)} - {formatCurrency(result.insurance.total)} = {formatCurrency(result.netIncome)}
               </Formula>
             </ProcessStep>
           </CalculationProcess>
@@ -324,7 +370,9 @@ export const TaxCalculator: React.FC = () => {
             ※ この計算は以下を前提としています：
             <br />・給与所得のみの独身者
             <br />・扶養控除なし
-            <br />・社会保険料は給与の約15%と概算
+            <br />・東京都在住（健康保険料率：9.81%）
+            <br />・厚生年金保険料率：18.3%
+            <br />・雇用保険料率：0.9%（一般の事業の場合）
             <br />・特別な控除や減税は考慮していません
           </Note>
         </>
