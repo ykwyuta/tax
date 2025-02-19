@@ -24,55 +24,106 @@ export class TaxCalculator {
   }
 
   /**
+   * 医療費控除額を計算
+   * @param medicalExpenses 年間医療費
+   * @param income 所得金額
+   * @returns 医療費控除額
+   */
+  private static calculateMedicalDeduction(medicalExpenses: number, income: number): {
+    deduction: number;
+    threshold: number;
+    formula: string;
+  } {
+    if (medicalExpenses <= 0) {
+      return {
+        deduction: 0,
+        threshold: 0,
+        formula: "医療費控除 = 0（医療費の支払いなし）"
+      };
+    }
+
+    // 所得の5%と10万円のいずれか少ない方を計算
+    const incomeThreshold = Math.floor(income * 0.05);
+    const threshold = Math.min(100_000, incomeThreshold);
+    
+    // 控除額を計算（上限200万円）
+    const deduction = Math.min(2_000_000, Math.max(0, medicalExpenses - threshold));
+
+    return {
+      deduction,
+      threshold,
+      formula: `医療費控除 = min(2,000,000, max(0, ${medicalExpenses.toLocaleString()}円 - ${threshold.toLocaleString()}円)) = ${deduction.toLocaleString()}円`
+    };
+  }
+
+  /**
    * 所得税額を計算
    * @param salary 年間給与収入
+   * @param medicalExpenses 年間医療費
    * @returns 所得税額（復興特別所得税を含む）
    */
-  public static calculateIncomeTax(salary: number): number {
+  public static calculateIncomeTax(salary: number, medicalExpenses: number = 0): {
+    tax: number;
+    medicalDeduction: {
+      deduction: number;
+      threshold: number;
+      formula: string;
+    };
+  } {
     // 給与所得控除を適用
     const salaryDeduction = this.calculateSalaryDeduction(salary);
     // 給与所得
     const taxableIncome = salary - salaryDeduction;
-    // 基礎控除（48万円）を適用
-    const taxableIncomeAfterBasicDeduction = Math.max(0, taxableIncome - 480_000);
+
+    // 医療費控除を計算
+    const medicalDeduction = this.calculateMedicalDeduction(medicalExpenses, taxableIncome);
+
+    // 基礎控除（48万円）と医療費控除を適用
+    const taxableIncomeAfterDeductions = Math.max(0, taxableIncome - 480_000 - medicalDeduction.deduction);
 
     // 税率による所得税額の計算
     let tax = 0;
-    if (taxableIncomeAfterBasicDeduction <= 1_950_000) {
-      tax = taxableIncomeAfterBasicDeduction * 0.05;
-    } else if (taxableIncomeAfterBasicDeduction <= 3_300_000) {
-      tax = taxableIncomeAfterBasicDeduction * 0.1 - 97_500;
-    } else if (taxableIncomeAfterBasicDeduction <= 6_950_000) {
-      tax = taxableIncomeAfterBasicDeduction * 0.2 - 427_500;
-    } else if (taxableIncomeAfterBasicDeduction <= 9_000_000) {
-      tax = taxableIncomeAfterBasicDeduction * 0.23 - 636_000;
-    } else if (taxableIncomeAfterBasicDeduction <= 18_000_000) {
-      tax = taxableIncomeAfterBasicDeduction * 0.33 - 1_536_000;
-    } else if (taxableIncomeAfterBasicDeduction <= 40_000_000) {
-      tax = taxableIncomeAfterBasicDeduction * 0.4 - 2_796_000;
+    if (taxableIncomeAfterDeductions <= 1_950_000) {
+      tax = taxableIncomeAfterDeductions * 0.05;
+    } else if (taxableIncomeAfterDeductions <= 3_300_000) {
+      tax = taxableIncomeAfterDeductions * 0.1 - 97_500;
+    } else if (taxableIncomeAfterDeductions <= 6_950_000) {
+      tax = taxableIncomeAfterDeductions * 0.2 - 427_500;
+    } else if (taxableIncomeAfterDeductions <= 9_000_000) {
+      tax = taxableIncomeAfterDeductions * 0.23 - 636_000;
+    } else if (taxableIncomeAfterDeductions <= 18_000_000) {
+      tax = taxableIncomeAfterDeductions * 0.33 - 1_536_000;
+    } else if (taxableIncomeAfterDeductions <= 40_000_000) {
+      tax = taxableIncomeAfterDeductions * 0.4 - 2_796_000;
     } else {
-      tax = taxableIncomeAfterBasicDeduction * 0.45 - 4_796_000;
+      tax = taxableIncomeAfterDeductions * 0.45 - 4_796_000;
     }
 
     // 復興特別所得税を加算（所得税額の2.1%）
-    return Math.floor(tax * 1.021);
+    return {
+      tax: Math.floor(tax * 1.021),
+      medicalDeduction
+    };
   }
 
   /**
    * 住民税額を計算（均等割含む）
    * @param salary 年間給与収入
+   * @param medicalExpenses 年間医療費
    * @returns 住民税額
    */
-  public static calculateResidentTax(salary: number): number {
+  public static calculateResidentTax(salary: number, medicalExpenses: number = 0): number {
     // 給与所得控除を適用
     const salaryDeduction = this.calculateSalaryDeduction(salary);
     // 給与所得
     const taxableIncome = salary - salaryDeduction;
-    // 基礎控除（43万円）を適用
-    const taxableIncomeAfterBasicDeduction = Math.max(0, taxableIncome - 430_000);
+    // 医療費控除を計算
+    const medicalDeduction = this.calculateMedicalDeduction(medicalExpenses, taxableIncome);
+    // 基礎控除（43万円）と医療費控除を適用
+    const taxableIncomeAfterDeductions = Math.max(0, taxableIncome - 430_000 - medicalDeduction.deduction);
 
     // 所得割の計算（標準税率：都道府県民税4%、市町村民税6%の合計10%）
-    const incomeTax = taxableIncomeAfterBasicDeduction * 0.1;
+    const incomeTax = taxableIncomeAfterDeductions * 0.1;
 
     // 均等割額を加算（標準額：都道府県民税1,500円、市町村民税3,500円の合計5,000円）
     return Math.floor(incomeTax + 5_000);
@@ -189,9 +240,10 @@ export class TaxCalculator {
   /**
    * 年収から手取り額を計算
    * @param salary 年間給与収入
+   * @param medicalExpenses 年間医療費
    * @returns 手取り額（概算）
    */
-  public static calculateNetIncome(salary: number): {
+  public static calculateNetIncome(salary: number, medicalExpenses: number = 0): {
     salary: number;
     incomeTax: number;
     residentTax: number;
@@ -202,10 +254,16 @@ export class TaxCalculator {
       total: number;
       standardMonthlyRemuneration: number;
     };
+    medicalExpenses: number;
+    medicalDeduction: {
+      deduction: number;
+      threshold: number;
+      formula: string;
+    };
     netIncome: number;
   } {
-    const incomeTax = this.calculateIncomeTax(salary);
-    const residentTax = this.calculateResidentTax(salary);
+    const { tax: incomeTax, medicalDeduction } = this.calculateIncomeTax(salary, medicalExpenses);
+    const residentTax = this.calculateResidentTax(salary, medicalExpenses);
     const insurance = this.calculateInsurance(salary);
     
     return {
@@ -213,6 +271,8 @@ export class TaxCalculator {
       incomeTax,
       residentTax,
       insurance,
+      medicalExpenses,
+      medicalDeduction,
       netIncome: salary - incomeTax - residentTax - insurance.total
     };
   }

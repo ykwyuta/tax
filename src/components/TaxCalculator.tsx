@@ -180,6 +180,7 @@ const InsuranceItem = styled.div`
 
 export const TaxCalculator: React.FC = () => {
   const [annualSalary, setAnnualSalary] = useState<number>(0);
+  const [medicalExpenses, setMedicalExpenses] = useState<number>(0);
 
   const calculateDeduction = (salary: number): { 
     deduction: number, 
@@ -223,7 +224,7 @@ export const TaxCalculator: React.FC = () => {
     }
   };
 
-  const result = annualSalary > 0 ? TaxCalculatorUtil.calculateNetIncome(annualSalary) : null;
+  const result = annualSalary > 0 ? TaxCalculatorUtil.calculateNetIncome(annualSalary, medicalExpenses) : null;
   const deductionCalc = annualSalary > 0 ? calculateDeduction(annualSalary) : null;
 
   const getIncomeTaxRate = (taxableIncome: number): {
@@ -265,6 +266,20 @@ export const TaxCalculator: React.FC = () => {
           />
           <Currency>円</Currency>
         </InputWrapper>
+
+        <Label htmlFor="medical" style={{ marginTop: '1rem' }}>年間医療費</Label>
+        <InputWrapper>
+          <Input
+            id="medical"
+            type="number"
+            value={medicalExpenses}
+            onChange={(e) => setMedicalExpenses(Number(e.target.value))}
+            min={0}
+            step={1000}
+            placeholder="医療費を入力してください"
+          />
+          <Currency>円</Currency>
+        </InputWrapper>
       </InputSection>
 
       {result && deductionCalc && (
@@ -276,6 +291,12 @@ export const TaxCalculator: React.FC = () => {
                 <span>年収:</span>
                 <Value>{formatCurrency(result.salary)}</Value>
               </ResultItem>
+              {result.medicalExpenses > 0 && (
+                <ResultItem>
+                  <span>医療費控除:</span>
+                  <Value>{formatCurrency(result.medicalDeduction.deduction)}</Value>
+                </ResultItem>
+              )}
               <ResultItem>
                 <span>所得税（復興特別所得税込）:</span>
                 <Value>{formatCurrency(result.incomeTax)}</Value>
@@ -330,19 +351,30 @@ export const TaxCalculator: React.FC = () => {
               </Formula>
             </ProcessStep>
 
+            {result.medicalExpenses > 0 && (
+              <ProcessStep>
+                <h4>3. 医療費控除の計算</h4>
+                <Formula>
+                  {result.medicalDeduction.formula}
+                  <br />
+                  ※ 差引額（{formatCurrency(result.medicalDeduction.threshold)}）は所得の5%と10万円のいずれか少ない方
+                </Formula>
+              </ProcessStep>
+            )}
+
             <ProcessStep>
-              <h4>3. 課税所得金額の計算</h4>
+              <h4>{result.medicalExpenses > 0 ? '4' : '3'}. 課税所得金額の計算</h4>
               <Formula>
-                課税所得金額 = 給与所得 - 基礎控除（48万円）
+                課税所得金額 = 給与所得 - 基礎控除（48万円）{result.medicalExpenses > 0 ? ' - 医療費控除' : ''}
                 <br />
-                {formatCurrency(annualSalary - deductionCalc.deduction)} - ¥480,000 = {formatCurrency(Math.max(0, annualSalary - deductionCalc.deduction - 480_000))}
+                {formatCurrency(annualSalary - deductionCalc.deduction)} - ¥480,000{result.medicalExpenses > 0 ? ` - ${formatCurrency(result.medicalDeduction.deduction)}` : ''} = {formatCurrency(Math.max(0, annualSalary - deductionCalc.deduction - 480_000 - (result.medicalExpenses > 0 ? result.medicalDeduction.deduction : 0)))}
               </Formula>
             </ProcessStep>
 
             <ProcessStep>
-              <h4>4. 所得税額の計算</h4>
+              <h4>{result.medicalExpenses > 0 ? '5' : '4'}. 所得税額の計算</h4>
               {(() => {
-                const taxableIncome = Math.max(0, annualSalary - deductionCalc.deduction - 480_000);
+                const taxableIncome = Math.max(0, annualSalary - deductionCalc.deduction - 480_000 - (result.medicalExpenses > 0 ? result.medicalDeduction.deduction : 0));
                 const taxRate = getIncomeTaxRate(taxableIncome);
                 const baseTax = Math.floor(taxableIncome * taxRate.rate - taxRate.deduction);
                 return (
@@ -362,16 +394,16 @@ export const TaxCalculator: React.FC = () => {
             </ProcessStep>
 
             <ProcessStep>
-              <h4>5. 住民税額の計算</h4>
+              <h4>{result.medicalExpenses > 0 ? '6' : '5'}. 住民税額の計算</h4>
               <Formula>
                 課税所得金額 × 10%（都道府県民税4% + 市町村民税6%）+ 均等割額5,000円
                 <br />
-                {formatCurrency(Math.max(0, annualSalary - deductionCalc.deduction - 430_000))} × 10% + ¥5,000 = {formatCurrency(result.residentTax)}
+                {formatCurrency(Math.max(0, annualSalary - deductionCalc.deduction - 430_000 - (result.medicalExpenses > 0 ? result.medicalDeduction.deduction : 0)))} × 10% + ¥5,000 = {formatCurrency(result.residentTax)}
               </Formula>
             </ProcessStep>
 
             <ProcessStep>
-              <h4>6. 社会保険料の計算</h4>
+              <h4>{result.medicalExpenses > 0 ? '7' : '6'}. 社会保険料の計算</h4>
               <Formula>
                 標準報酬月額: {formatCurrency(result.insurance.standardMonthlyRemuneration)}
                 <br />
@@ -386,7 +418,7 @@ export const TaxCalculator: React.FC = () => {
             </ProcessStep>
 
             <ProcessStep>
-              <h4>7. 手取り額の計算</h4>
+              <h4>{result.medicalExpenses > 0 ? '8' : '7'}. 手取り額の計算</h4>
               <Formula>
                 手取り額 = 年収 - 所得税 - 住民税 - 社会保険料合計
                 <br />
@@ -402,6 +434,7 @@ export const TaxCalculator: React.FC = () => {
             <br />・東京都在住（健康保険料率：9.81%）
             <br />・厚生年金保険料率：18.3%
             <br />・雇用保険料率：0.9%（一般の事業の場合）
+            <br />・医療費控除は実額控除方式（セルフメディケーション税制は考慮していません）
             <br />・特別な控除や減税は考慮していません
           </Note>
         </>
