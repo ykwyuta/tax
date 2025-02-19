@@ -13,7 +13,13 @@ const formatCurrency = (value: number): string => {
 const Container = styled.div`
   max-width: 800px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1rem;
+  color: #2c3e50;
+  background-color: #ffffff;
+
+  @media (min-width: 768px) {
+    padding: 2rem;
+  }
 `;
 
 const Title = styled.h1`
@@ -46,10 +52,16 @@ const Input = styled.input`
   border: 2px solid #ddd;
   border-radius: 4px;
   transition: border-color 0.3s;
+  color: #2c3e50;
+  background-color: #ffffff;
 
   &:focus {
     outline: none;
     border-color: #42b983;
+  }
+
+  &::placeholder {
+    color: #999;
   }
 `;
 
@@ -60,9 +72,13 @@ const Currency = styled.span`
 
 const ResultSection = styled.div`
   background-color: #f8f9fa;
-  padding: 2rem;
+  padding: 1rem;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  @media (min-width: 768px) {
+    padding: 2rem;
+  }
 `;
 
 const ResultTitle = styled.h2`
@@ -80,7 +96,7 @@ const ResultItem = styled.div<{ isTotal?: boolean }>`
   justify-content: space-between;
   padding: 0.75rem;
   background-color: ${props => props.isTotal ? '#42b983' : 'white'};
-  color: ${props => props.isTotal ? 'white' : 'inherit'};
+  color: ${props => props.isTotal ? '#ffffff' : '#2c3e50'};
   border-radius: 4px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   margin-top: ${props => props.isTotal ? '1rem' : '0'};
@@ -115,11 +131,17 @@ const ProcessTitle = styled.h3`
 const ProcessStep = styled.div`
   margin-bottom: 1rem;
   padding: 0.75rem;
-  background-color: white;
+  background-color: #ffffff;
   border-radius: 4px;
+  color: #2c3e50;
   
   &:last-child {
     margin-bottom: 0;
+  }
+
+  h4 {
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
   }
 `;
 
@@ -127,15 +149,21 @@ const Formula = styled.div`
   font-family: monospace;
   margin: 0.5rem 0;
   padding: 0.5rem;
-  background-color: #f0f2f5;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
   border-radius: 4px;
+  color: #2c3e50;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
 `;
 
 const InsuranceDetails = styled.div`
   margin-top: 1rem;
   padding: 1rem;
-  background-color: #f0f2f5;
+  background-color: #ffffff;
   border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 `;
 
 const InsuranceItem = styled.div`
@@ -143,6 +171,7 @@ const InsuranceItem = styled.div`
   justify-content: space-between;
   padding: 0.5rem 0;
   font-size: 0.9rem;
+  color: #2c3e50;
   
   &:not(:last-child) {
     border-bottom: 1px solid #ddd;
