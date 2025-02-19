@@ -321,13 +321,13 @@ export class TaxCalculator {
     const residentTaxBase = Math.max(0, taxableIncome - 430_000 - medicalDeduction.deduction);
 
     // 限度額の計算
-    const incomeTaxPortion = incomeTaxBase * 0.2;
-    const residentTaxPortion = residentTaxBase * 0.016;
-    const limit = Math.floor((incomeTaxPortion + residentTaxPortion) * 5);
+    const incomeTaxPortion = incomeTaxBase * 0.004;  // 所得税分 0.4%
+    const residentTaxPortion = residentTaxBase * 0.006;  // 住民税分 0.6%
+    const limit = Math.floor((incomeTaxPortion + residentTaxPortion) * 2);
 
     return {
       limit,
-      formula: `ふるさと納税の限度額 = (所得税の課税所得金額(${incomeTaxBase.toLocaleString()}円) × 20% + 住民税の課税所得金額(${residentTaxBase.toLocaleString()}円) × 1.6%) × 5 = ${limit.toLocaleString()}円`
+      formula: `ふるさと納税の限度額 = (所得税の課税所得金額(${incomeTaxBase.toLocaleString()}円) × 0.4% + 住民税の課税所得金額(${residentTaxBase.toLocaleString()}円) × 0.6%) × 2 = ${limit.toLocaleString()}円`
     };
   }
 
