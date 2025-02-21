@@ -196,6 +196,14 @@ export const TaxCalculator: React.FC = () => {
     earthquakeInsurance: 0,
     oldLongTermInsurance: 0
   });
+  const [dependents, setDependents] = useState({
+    spouse: false,
+    spouseIncome: 0,
+    elderly: 0,
+    specific: 0,
+    general: 0
+  });
+  const [hasSpecialCondition, setHasSpecialCondition] = useState(false);
 
   const calculateDeduction = (salary: number): { 
     deduction: number, 
@@ -243,7 +251,9 @@ export const TaxCalculator: React.FC = () => {
     annualSalary,
     medicalExpenses,
     loanBalance,
-    insurances
+    insurances,
+    dependents,
+    hasSpecialCondition
   ) : null;
   const deductionCalc = annualSalary > 0 ? calculateDeduction(annualSalary) : null;
 
@@ -414,6 +424,116 @@ export const TaxCalculator: React.FC = () => {
         <Description>
           2006年末までに契約した満期返戻金のある長期損害保険の年間支払保険料を入力してください。
         </Description>
+
+        <Label style={{ marginTop: '2rem' }}>扶養控除</Label>
+        <Description>
+          扶養親族の情報を入力してください。特定扶養親族は19〜23歳、一般扶養親族は16〜18歳または23〜69歳、
+          老人扶養親族は70歳以上の扶養親族です。
+        </Description>
+
+        <InputWrapper style={{ marginTop: '1rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <input
+              type="checkbox"
+              checked={dependents.spouse}
+              onChange={(e) => setDependents({
+                ...dependents,
+                spouse: e.target.checked
+              })}
+            />
+            配偶者控除対象
+          </label>
+        </InputWrapper>
+
+        {dependents.spouse && (
+          <InputWrapper style={{ marginTop: '0.5rem' }}>
+            <Input
+              type="number"
+              value={dependents.spouseIncome}
+              onChange={(e) => setDependents({
+                ...dependents,
+                spouseIncome: Number(e.target.value)
+              })}
+              min={0}
+              step={10000}
+              placeholder="配偶者の年間所得を入力"
+            />
+            <Currency>円</Currency>
+          </InputWrapper>
+        )}
+        <Description>
+          配偶者の年間所得が48万円以下の場合、38万円の控除が適用されます。
+        </Description>
+
+        <InputWrapper style={{ marginTop: '1rem' }}>
+          <Input
+            type="number"
+            value={dependents.elderly}
+            onChange={(e) => setDependents({
+              ...dependents,
+              elderly: Number(e.target.value)
+            })}
+            min={0}
+            step={1}
+            placeholder="老人扶養親族の人数"
+          />
+          <span>人</span>
+        </InputWrapper>
+        <Description>
+          70歳以上の扶養親族（1人につき48万円の控除）
+        </Description>
+
+        <InputWrapper style={{ marginTop: '0.5rem' }}>
+          <Input
+            type="number"
+            value={dependents.specific}
+            onChange={(e) => setDependents({
+              ...dependents,
+              specific: Number(e.target.value)
+            })}
+            min={0}
+            step={1}
+            placeholder="特定扶養親族の人数"
+          />
+          <span>人</span>
+        </InputWrapper>
+        <Description>
+          19〜23歳の扶養親族（1人につき63万円の控除）
+        </Description>
+
+        <InputWrapper style={{ marginTop: '0.5rem' }}>
+          <Input
+            type="number"
+            value={dependents.general}
+            onChange={(e) => setDependents({
+              ...dependents,
+              general: Number(e.target.value)
+            })}
+            min={0}
+            step={1}
+            placeholder="一般扶養親族の人数"
+          />
+          <span>人</span>
+        </InputWrapper>
+        <Description>
+          16〜18歳または23〜69歳の扶養親族（1人につき38万円の控除）
+        </Description>
+
+        <Label style={{ marginTop: '1.5rem' }}>所得金額調整控除</Label>
+        <InputWrapper>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <input
+              type="checkbox"
+              checked={hasSpecialCondition}
+              onChange={(e) => setHasSpecialCondition(e.target.checked)}
+            />
+            特別な事情あり
+          </label>
+        </InputWrapper>
+        <Description>
+          23歳未満の扶養親族がいる場合や、特別障害者である配偶者や扶養親族がいる場合などは、
+          年収850万円超で所得金額調整控除が適用されます。
+        </Description>
       </InputSection>
 
       {result && deductionCalc && (
@@ -516,6 +636,47 @@ export const TaxCalculator: React.FC = () => {
                     <ResultItem>
                       <span>地震保険料控除:</span>
                       <Value>{formatCurrency(result.insuranceDeductions.earthquake.deduction)}</Value>
+                    </ResultItem>
+                  )}
+                </>
+              )}
+
+              {(result.dependentDeduction.total > 0 || result.incomeAdjustment.deduction > 0) && (
+                <>
+                  {result.dependentDeduction.total > 0 && (
+                    <ResultItem>
+                      <span>扶養控除（合計）:</span>
+                      <Value>{formatCurrency(result.dependentDeduction.total)}</Value>
+                    </ResultItem>
+                  )}
+                  {result.dependentDeduction.spouse > 0 && (
+                    <ResultItem>
+                      <span>（配偶者控除）:</span>
+                      <Value>{formatCurrency(result.dependentDeduction.spouse)}</Value>
+                    </ResultItem>
+                  )}
+                  {result.dependentDeduction.elderly > 0 && (
+                    <ResultItem>
+                      <span>（老人扶養控除）:</span>
+                      <Value>{formatCurrency(result.dependentDeduction.elderly)}</Value>
+                    </ResultItem>
+                  )}
+                  {result.dependentDeduction.specific > 0 && (
+                    <ResultItem>
+                      <span>（特定扶養控除）:</span>
+                      <Value>{formatCurrency(result.dependentDeduction.specific)}</Value>
+                    </ResultItem>
+                  )}
+                  {result.dependentDeduction.general > 0 && (
+                    <ResultItem>
+                      <span>（一般扶養控除）:</span>
+                      <Value>{formatCurrency(result.dependentDeduction.general)}</Value>
+                    </ResultItem>
+                  )}
+                  {result.incomeAdjustment.deduction > 0 && (
+                    <ResultItem>
+                      <span>所得金額調整控除:</span>
+                      <Value>{formatCurrency(result.incomeAdjustment.deduction)}</Value>
                     </ResultItem>
                   )}
                 </>
@@ -652,6 +813,22 @@ export const TaxCalculator: React.FC = () => {
                 )}
               </ProcessStep>
             )}
+
+            {result && (result.dependentDeduction.total > 0 || result.incomeAdjustment.deduction > 0) && (
+              <ProcessStep>
+                <h4>扶養控除と所得金額調整控除の計算</h4>
+                {result.dependentDeduction.total > 0 && (
+                  <Formula>
+                    {result.dependentDeduction.formula}
+                  </Formula>
+                )}
+                {result.incomeAdjustment.deduction > 0 && (
+                  <Formula>
+                    {result.incomeAdjustment.formula}
+                  </Formula>
+                )}
+              </ProcessStep>
+            )}
           </CalculationProcess>
 
           <Note>
@@ -668,6 +845,8 @@ export const TaxCalculator: React.FC = () => {
             <br />・住宅ローン控除の住民税控除部分は上限13.65万円
             <br />・ふるさと納税の限度額は、所得税と住民税の課税所得金額をもとに計算しています
             <br />・特別な控除や減税は考慮していません
+            <br />・扶養控除は配偶者控除（38万円）、老人扶養控除（48万円/人）、特定扶養控除（63万円/人）、一般扶養控除（38万円/人）
+            <br />・所得金額調整控除は年収850万円超で特別な事情がある場合に適用
           </Note>
         </>
       )}

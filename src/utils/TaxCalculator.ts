@@ -195,6 +195,89 @@ export class TaxCalculator {
   }
 
   /**
+   * 扶養控除額を計算
+   * @param dependents 扶養親族の情報
+   * @returns 扶養控除額の内訳
+   */
+  private static calculateDependentDeduction(dependents: {
+    spouse: boolean;  // 配偶者控除対象
+    spouseIncome: number;  // 配偶者の所得
+    elderly: number;  // 老人扶養親族の人数
+    specific: number;  // 特定扶養親族の人数
+    general: number;  // 一般扶養親族の人数
+  }): {
+    total: number;
+    spouse: number;
+    elderly: number;
+    specific: number;
+    general: number;
+    formula: string;
+  } {
+    let spouseDeduction = 0;
+    let formula = "";
+
+    // 配偶者控除（所得48万円以下の場合）
+    if (dependents.spouse && dependents.spouseIncome <= 480_000) {
+      spouseDeduction = 380_000;
+      formula += `配偶者控除 = ${spouseDeduction.toLocaleString()}円\n`;
+    }
+
+    // 扶養控除の計算
+    const elderlyDeduction = dependents.elderly * 480_000;  // 老人扶養親族（1人につき48万円）
+    const specificDeduction = dependents.specific * 630_000;  // 特定扶養親族（1人につき63万円）
+    const generalDeduction = dependents.general * 380_000;   // 一般扶養親族（1人につき38万円）
+
+    if (dependents.elderly > 0) {
+      formula += `老人扶養控除 = ${dependents.elderly}人 × 480,000円 = ${elderlyDeduction.toLocaleString()}円\n`;
+    }
+    if (dependents.specific > 0) {
+      formula += `特定扶養控除 = ${dependents.specific}人 × 630,000円 = ${specificDeduction.toLocaleString()}円\n`;
+    }
+    if (dependents.general > 0) {
+      formula += `一般扶養控除 = ${dependents.general}人 × 380,000円 = ${generalDeduction.toLocaleString()}円\n`;
+    }
+
+    const total = spouseDeduction + elderlyDeduction + specificDeduction + generalDeduction;
+    formula += `扶養控除合計 = ${total.toLocaleString()}円`;
+
+    return {
+      total,
+      spouse: spouseDeduction,
+      elderly: elderlyDeduction,
+      specific: specificDeduction,
+      general: generalDeduction,
+      formula
+    };
+  }
+
+  /**
+   * 所得金額調整控除を計算
+   * @param salary 給与収入
+   * @param hasSpecialCondition 特別な事情（子育て・特別障害者である配偶者等）があるか
+   * @returns 所得金額調整控除額
+   */
+  private static calculateIncomeAdjustmentDeduction(
+    salary: number,
+    hasSpecialCondition: boolean
+  ): {
+    deduction: number;
+    formula: string;
+  } {
+    if (!hasSpecialCondition || salary <= 8_500_000) {
+      return {
+        deduction: 0,
+        formula: "所得金額調整控除の対象外"
+      };
+    }
+
+    const deduction = Math.floor((salary - 8_500_000) * 0.1);
+    return {
+      deduction,
+      formula: `所得金額調整控除 = (${salary.toLocaleString()}円 - 8,500,000円) × 10% = ${deduction.toLocaleString()}円`
+    };
+  }
+
+  /**
    * 所得税額を計算
    * @param salary 年間給与収入
    * @param medicalExpenses 年間医療費
@@ -544,7 +627,21 @@ export class TaxCalculator {
       pensionInsurance: 0,
       earthquakeInsurance: 0,
       oldLongTermInsurance: 0
-    }
+    },
+    dependents: {
+      spouse: boolean;
+      spouseIncome: number;
+      elderly: number;
+      specific: number;
+      general: number;
+    } = {
+      spouse: false,
+      spouseIncome: 0,
+      elderly: 0,
+      specific: 0,
+      general: 0
+    },
+    hasSpecialCondition: boolean = false
   ): {
     salary: number;
     incomeTax: number;
@@ -588,8 +685,23 @@ export class TaxCalculator {
       limit: number;
       formula: string;
     };
+    dependentDeduction: {
+      total: number;
+      spouse: number;
+      elderly: number;
+      specific: number;
+      general: number;
+      formula: string;
+    };
+    incomeAdjustment: {
+      deduction: number;
+      formula: string;
+    };
     netIncome: number;
   } {
+    const dependentDeduction = this.calculateDependentDeduction(dependents);
+    const incomeAdjustment = this.calculateIncomeAdjustmentDeduction(salary, hasSpecialCondition);
+
     const { tax: incomeTax, medicalDeduction, housingLoanDeduction, insuranceDeductions } = 
       this.calculateIncomeTax(salary, medicalExpenses, loanBalance, insurances);
     const { tax: residentTax, housingLoanDeduction: residentTaxDeduction } = 
@@ -615,6 +727,8 @@ export class TaxCalculator {
       },
       insuranceDeductions,
       furusatoNozei,
+      dependentDeduction,
+      incomeAdjustment,
       netIncome: salary - incomeTax - residentTax - insurance.total
     };
   }
