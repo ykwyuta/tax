@@ -54,6 +54,7 @@ const Input = styled.input`
   transition: border-color 0.3s;
   color: #2c3e50;
   background-color: #ffffff;
+  text-align: right;
 
   &:focus {
     outline: none;
@@ -62,6 +63,7 @@ const Input = styled.input`
 
   &::placeholder {
     color: #999;
+    text-align: left;
   }
 `;
 
@@ -320,6 +322,18 @@ export const TaxCalculator: React.FC = () => {
     }
   };
 
+  // 数値を3桁区切りでフォーマットする関数
+  const formatNumberInput = (value: number): string => {
+    if (value === 0) return '';
+    return value.toLocaleString();
+  };
+
+  // 入力値をパースする関数
+  const parseNumberInput = (value: string): number => {
+    // カンマを除去して数値に変換
+    return Number(value.replace(/,/g, ''));
+  };
+
   return (
     <Container>
       <Title>給与所得の税金計算</Title>
@@ -346,11 +360,10 @@ export const TaxCalculator: React.FC = () => {
             <InputWrapper>
               <Input
                 id="salary"
-                type="number"
-                value={annualSalary}
-                onChange={(e) => setAnnualSalary(Number(e.target.value))}
-                min={0}
-                step={10000}
+                type="text"
+                inputMode="numeric"
+                value={formatNumberInput(annualSalary)}
+                onChange={(e) => setAnnualSalary(parseNumberInput(e.target.value))}
                 placeholder="年収を入力してください"
               />
               <Currency>円</Currency>
@@ -360,11 +373,10 @@ export const TaxCalculator: React.FC = () => {
             <InputWrapper>
               <Input
                 id="medical"
-                type="number"
-                value={medicalExpenses}
-                onChange={(e) => setMedicalExpenses(Number(e.target.value))}
-                min={0}
-                step={1000}
+                type="text"
+                inputMode="numeric"
+                value={formatNumberInput(medicalExpenses)}
+                onChange={(e) => setMedicalExpenses(parseNumberInput(e.target.value))}
                 placeholder="医療費を入力してください"
               />
               <Currency>円</Currency>
@@ -374,11 +386,10 @@ export const TaxCalculator: React.FC = () => {
             <InputWrapper>
               <Input
                 id="loan"
-                type="number"
-                value={loanBalance}
-                onChange={(e) => setLoanBalance(Number(e.target.value))}
-                min={0}
-                step={100000}
+                type="text"
+                inputMode="numeric"
+                value={formatNumberInput(loanBalance)}
+                onChange={(e) => setLoanBalance(parseNumberInput(e.target.value))}
                 placeholder="住宅ローン残高を入力してください"
               />
               <Currency>円</Currency>
@@ -391,14 +402,13 @@ export const TaxCalculator: React.FC = () => {
             </Description>
             <InputWrapper>
               <Input
-                type="number"
-                value={insurances.generalLifeInsurance}
+                type="text"
+                inputMode="numeric"
+                value={formatNumberInput(insurances.generalLifeInsurance)}
                 onChange={(e) => setInsurances({
                   ...insurances,
-                  generalLifeInsurance: Number(e.target.value)
+                  generalLifeInsurance: parseNumberInput(e.target.value)
                 })}
-                min={0}
-                step={1000}
                 placeholder="一般生命保険料を入力"
               />
               <Currency>円</Currency>
@@ -409,14 +419,13 @@ export const TaxCalculator: React.FC = () => {
 
             <InputWrapper style={{ marginTop: '0.5rem' }}>
               <Input
-                type="number"
-                value={insurances.medicalLifeInsurance}
+                type="text"
+                inputMode="numeric"
+                value={formatNumberInput(insurances.medicalLifeInsurance)}
                 onChange={(e) => setInsurances({
                   ...insurances,
-                  medicalLifeInsurance: Number(e.target.value)
+                  medicalLifeInsurance: parseNumberInput(e.target.value)
                 })}
-                min={0}
-                step={1000}
                 placeholder="介護医療保険料を入力"
               />
               <Currency>円</Currency>
@@ -427,14 +436,13 @@ export const TaxCalculator: React.FC = () => {
 
             <InputWrapper style={{ marginTop: '0.5rem' }}>
               <Input
-                type="number"
-                value={insurances.pensionInsurance}
+                type="text"
+                inputMode="numeric"
+                value={formatNumberInput(insurances.pensionInsurance)}
                 onChange={(e) => setInsurances({
                   ...insurances,
-                  pensionInsurance: Number(e.target.value)
+                  pensionInsurance: parseNumberInput(e.target.value)
                 })}
-                min={0}
-                step={1000}
                 placeholder="個人年金保険料を入力"
               />
               <Currency>円</Currency>
@@ -450,14 +458,13 @@ export const TaxCalculator: React.FC = () => {
             </Description>
             <InputWrapper>
               <Input
-                type="number"
-                value={insurances.earthquakeInsurance}
+                type="text"
+                inputMode="numeric"
+                value={formatNumberInput(insurances.earthquakeInsurance)}
                 onChange={(e) => setInsurances({
                   ...insurances,
-                  earthquakeInsurance: Number(e.target.value)
+                  earthquakeInsurance: parseNumberInput(e.target.value)
                 })}
-                min={0}
-                step={1000}
                 placeholder="地震保険料を入力"
               />
               <Currency>円</Currency>
@@ -468,14 +475,13 @@ export const TaxCalculator: React.FC = () => {
 
             <InputWrapper style={{ marginTop: '0.5rem' }}>
               <Input
-                type="number"
-                value={insurances.oldLongTermInsurance}
+                type="text"
+                inputMode="numeric"
+                value={formatNumberInput(insurances.oldLongTermInsurance)}
                 onChange={(e) => setInsurances({
                   ...insurances,
-                  oldLongTermInsurance: Number(e.target.value)
+                  oldLongTermInsurance: parseNumberInput(e.target.value)
                 })}
-                min={0}
-                step={1000}
                 placeholder="旧長期損害保険料を入力"
               />
               <Currency>円</Currency>
@@ -507,14 +513,13 @@ export const TaxCalculator: React.FC = () => {
             {dependents.spouse && (
               <InputWrapper style={{ marginTop: '0.5rem' }}>
                 <Input
-                  type="number"
-                  value={dependents.spouseIncome}
+                  type="text"
+                  inputMode="numeric"
+                  value={formatNumberInput(dependents.spouseIncome)}
                   onChange={(e) => setDependents({
                     ...dependents,
-                    spouseIncome: Number(e.target.value)
+                    spouseIncome: parseNumberInput(e.target.value)
                   })}
-                  min={0}
-                  step={10000}
                   placeholder="配偶者の年間所得を入力"
                 />
                 <Currency>円</Currency>
@@ -526,14 +531,13 @@ export const TaxCalculator: React.FC = () => {
 
             <InputWrapper style={{ marginTop: '1rem' }}>
               <Input
-                type="number"
-                value={dependents.elderly}
+                type="text"
+                inputMode="numeric"
+                value={formatNumberInput(dependents.elderly)}
                 onChange={(e) => setDependents({
                   ...dependents,
-                  elderly: Number(e.target.value)
+                  elderly: parseNumberInput(e.target.value)
                 })}
-                min={0}
-                step={1}
                 placeholder="老人扶養親族の人数"
               />
               <span>人</span>
@@ -544,14 +548,13 @@ export const TaxCalculator: React.FC = () => {
 
             <InputWrapper style={{ marginTop: '0.5rem' }}>
               <Input
-                type="number"
-                value={dependents.specific}
+                type="text"
+                inputMode="numeric"
+                value={formatNumberInput(dependents.specific)}
                 onChange={(e) => setDependents({
                   ...dependents,
-                  specific: Number(e.target.value)
+                  specific: parseNumberInput(e.target.value)
                 })}
-                min={0}
-                step={1}
                 placeholder="特定扶養親族の人数"
               />
               <span>人</span>
@@ -562,14 +565,13 @@ export const TaxCalculator: React.FC = () => {
 
             <InputWrapper style={{ marginTop: '0.5rem' }}>
               <Input
-                type="number"
-                value={dependents.general}
+                type="text"
+                inputMode="numeric"
+                value={formatNumberInput(dependents.general)}
                 onChange={(e) => setDependents({
                   ...dependents,
-                  general: Number(e.target.value)
+                  general: parseNumberInput(e.target.value)
                 })}
-                min={0}
-                step={1}
                 placeholder="一般扶養親族の人数"
               />
               <span>人</span>
