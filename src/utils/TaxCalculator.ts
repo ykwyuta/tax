@@ -88,13 +88,138 @@ export class TaxCalculator {
   }
 
   /**
+   * 生命保険料控除を計算
+   * @param generalInsurance 一般生命保険料
+   * @param medicalInsurance 介護医療保険料
+   * @param pensionInsurance 個人年金保険料
+   * @returns 生命保険料控除額の内訳
+   */
+  private static calculateLifeInsuranceDeduction(
+    generalInsurance: number,
+    medicalInsurance: number,
+    pensionInsurance: number
+  ): {
+    generalDeduction: number;
+    medicalDeduction: number;
+    pensionDeduction: number;
+    total: number;
+    formula: string;
+  } {
+    const calculateSingleDeduction = (amount: number): number => {
+      if (amount <= 20_000) {
+        return amount;
+      } else if (amount <= 40_000) {
+        return Math.floor(amount * 0.5 + 10_000);
+      } else if (amount <= 80_000) {
+        return Math.floor(amount * 0.25 + 20_000);
+      } else {
+        return 40_000;
+      }
+    };
+
+    const generalDeduction = calculateSingleDeduction(generalInsurance);
+    const medicalDeduction = calculateSingleDeduction(medicalInsurance);
+    const pensionDeduction = calculateSingleDeduction(pensionInsurance);
+    const total = generalDeduction + medicalDeduction + pensionDeduction;
+
+    return {
+      generalDeduction,
+      medicalDeduction,
+      pensionDeduction,
+      total,
+      formula: `
+一般生命保険料控除 = ${generalDeduction.toLocaleString()}円
+介護医療保険料控除 = ${medicalDeduction.toLocaleString()}円
+個人年金保険料控除 = ${pensionDeduction.toLocaleString()}円
+合計控除額 = ${total.toLocaleString()}円`
+    };
+  }
+
+  /**
+   * 地震保険料控除を計算
+   * @param earthquakeInsurance 地震保険料
+   * @param oldLongTermInsurance 旧長期損害保険料
+   * @returns 地震保険料控除額
+   */
+  private static calculateEarthquakeInsuranceDeduction(
+    earthquakeInsurance: number,
+    oldLongTermInsurance: number
+  ): {
+    deduction: number;
+    formula: string;
+  } {
+    let earthquakeDeduction = 0;
+    let oldLongTermDeduction = 0;
+    let formula = "";
+
+    // 地震保険料の控除額計算（全額控除、上限5万円）
+    if (earthquakeInsurance > 0) {
+      earthquakeDeduction = Math.min(50_000, earthquakeInsurance);
+      formula += `地震保険料控除 = min(50,000, ${earthquakeInsurance.toLocaleString()}円) = ${earthquakeDeduction.toLocaleString()}円（上限5万円）\n`;
+    }
+
+    // 旧長期損害保険料の控除額計算
+    if (oldLongTermInsurance > 0) {
+      if (oldLongTermInsurance <= 5_000) {
+        oldLongTermDeduction = oldLongTermInsurance;
+      } else if (oldLongTermInsurance <= 15_000) {
+        oldLongTermDeduction = Math.floor(oldLongTermInsurance * 0.5 + 2_500);
+      } else {
+        oldLongTermDeduction = 10_000;
+      }
+      formula += `旧長期損害保険料控除 = ${oldLongTermDeduction.toLocaleString()}円`;
+    }
+
+    // 地震保険料控除のみの場合
+    if (earthquakeInsurance > 0 && oldLongTermInsurance === 0) {
+      return {
+        deduction: earthquakeDeduction,
+        formula
+      };
+    }
+    
+    // 旧長期損害保険料控除のみの場合
+    if (earthquakeInsurance === 0 && oldLongTermInsurance > 0) {
+      return {
+        deduction: oldLongTermDeduction,
+        formula
+      };
+    }
+
+    // 両方ある場合は合算（上限5万円）
+    const totalDeduction = Math.min(50_000, earthquakeDeduction + oldLongTermDeduction);
+    return {
+      deduction: totalDeduction,
+      formula: formula + `\n合計控除額 = ${totalDeduction.toLocaleString()}円`
+    };
+  }
+
+  /**
    * 所得税額を計算
    * @param salary 年間給与収入
    * @param medicalExpenses 年間医療費
    * @param loanBalance 住宅ローン残高
+   * @param insurances 保険料情報
    * @returns 所得税額（復興特別所得税を含む）
    */
-  public static calculateIncomeTax(salary: number, medicalExpenses: number = 0, loanBalance: number = 0): {
+  public static calculateIncomeTax(
+    salary: number,
+    medicalExpenses: number = 0,
+    loanBalance: number = 0,
+    insurances: {
+      generalLifeInsurance: number;
+      medicalLifeInsurance: number;
+      pensionInsurance: number;
+      earthquakeInsurance: number;
+      oldLongTermInsurance: number;
+    } = {
+      generalLifeInsurance: 0,
+      medicalLifeInsurance: 0,
+      pensionInsurance: 0,
+      earthquakeInsurance: 0,
+      oldLongTermInsurance: 0
+    }
+  ): {
     tax: number;
     medicalDeduction: {
       deduction: number;
@@ -107,6 +232,19 @@ export class TaxCalculator {
       residentTaxDeduction: number;
       formula: string;
     };
+    insuranceDeductions: {
+      life: {
+        generalDeduction: number;
+        medicalDeduction: number;
+        pensionDeduction: number;
+        total: number;
+        formula: string;
+      };
+      earthquake: {
+        deduction: number;
+        formula: string;
+      };
+    };
   } {
     // 給与所得控除を適用
     const salaryDeduction = this.calculateSalaryDeduction(salary);
@@ -116,8 +254,24 @@ export class TaxCalculator {
     // 医療費控除を計算
     const medicalDeduction = this.calculateMedicalDeduction(medicalExpenses, taxableIncome);
 
-    // 基礎控除（48万円）と医療費控除を適用
-    const taxableIncomeAfterDeductions = Math.max(0, taxableIncome - 480_000 - medicalDeduction.deduction);
+    // 生命保険料控除を計算
+    const lifeInsuranceDeduction = this.calculateLifeInsuranceDeduction(
+      insurances.generalLifeInsurance,
+      insurances.medicalLifeInsurance,
+      insurances.pensionInsurance
+    );
+
+    // 地震保険料控除を計算
+    const earthquakeInsuranceDeduction = this.calculateEarthquakeInsuranceDeduction(
+      insurances.earthquakeInsurance,
+      insurances.oldLongTermInsurance
+    );
+
+    // 基礎控除（48万円）と各種控除を適用
+    const taxableIncomeAfterDeductions = Math.max(0, taxableIncome - 480_000 
+      - medicalDeduction.deduction 
+      - lifeInsuranceDeduction.total
+      - earthquakeInsuranceDeduction.deduction);
 
     // 税率による所得税額の計算
     let tax = 0;
@@ -146,7 +300,11 @@ export class TaxCalculator {
     return {
       tax: finalTax,
       medicalDeduction,
-      housingLoanDeduction
+      housingLoanDeduction,
+      insuranceDeductions: {
+        life: lifeInsuranceDeduction,
+        earthquake: earthquakeInsuranceDeduction
+      }
     };
   }
 
@@ -156,13 +314,27 @@ export class TaxCalculator {
    * @param medicalExpenses 年間医療費
    * @param loanBalance 住宅ローン残高
    * @param incomeTaxDeduction 所得税で控除された住宅ローン控除額
+   * @param insurances 保険料情報
    * @returns 住民税額
    */
   public static calculateResidentTax(
     salary: number, 
     medicalExpenses: number = 0, 
     loanBalance: number = 0,
-    incomeTaxDeduction: number = 0
+    incomeTaxDeduction: number = 0,
+    insurances: {
+      generalLifeInsurance: number;
+      medicalLifeInsurance: number;
+      pensionInsurance: number;
+      earthquakeInsurance: number;
+      oldLongTermInsurance: number;
+    } = {
+      generalLifeInsurance: 0,
+      medicalLifeInsurance: 0,
+      pensionInsurance: 0,
+      earthquakeInsurance: 0,
+      oldLongTermInsurance: 0
+    }
   ): {
     tax: number;
     housingLoanDeduction: number;
@@ -173,8 +345,25 @@ export class TaxCalculator {
     const taxableIncome = salary - salaryDeduction;
     // 医療費控除を計算
     const medicalDeduction = this.calculateMedicalDeduction(medicalExpenses, taxableIncome);
-    // 基礎控除（43万円）と医療費控除を適用
-    const taxableIncomeAfterDeductions = Math.max(0, taxableIncome - 430_000 - medicalDeduction.deduction);
+
+    // 生命保険料控除を計算
+    const lifeInsuranceDeduction = this.calculateLifeInsuranceDeduction(
+      insurances.generalLifeInsurance,
+      insurances.medicalLifeInsurance,
+      insurances.pensionInsurance
+    );
+
+    // 地震保険料控除を計算
+    const earthquakeInsuranceDeduction = this.calculateEarthquakeInsuranceDeduction(
+      insurances.earthquakeInsurance,
+      insurances.oldLongTermInsurance
+    );
+
+    // 基礎控除（43万円）と各種控除を適用
+    const taxableIncomeAfterDeductions = Math.max(0, taxableIncome - 430_000 
+      - medicalDeduction.deduction
+      - lifeInsuranceDeduction.total
+      - earthquakeInsuranceDeduction.deduction);
 
     // 所得割の計算（標準税率：都道府県民税4%、市町村民税6%の合計10%）
     const incomeTax = taxableIncomeAfterDeductions * 0.1;
@@ -336,12 +525,26 @@ export class TaxCalculator {
    * @param salary 年間給与収入
    * @param medicalExpenses 年間医療費
    * @param loanBalance 住宅ローン残高
+   * @param insurances 保険料情報
    * @returns 手取り額（概算）
    */
   public static calculateNetIncome(
     salary: number, 
     medicalExpenses: number = 0,
-    loanBalance: number = 0
+    loanBalance: number = 0,
+    insurances: {
+      generalLifeInsurance: number;
+      medicalLifeInsurance: number;
+      pensionInsurance: number;
+      earthquakeInsurance: number;
+      oldLongTermInsurance: number;
+    } = {
+      generalLifeInsurance: 0,
+      medicalLifeInsurance: 0,
+      pensionInsurance: 0,
+      earthquakeInsurance: 0,
+      oldLongTermInsurance: 0
+    }
   ): {
     salary: number;
     incomeTax: number;
@@ -368,16 +571,29 @@ export class TaxCalculator {
         formula: string;
       };
     };
+    insuranceDeductions: {
+      life: {
+        generalDeduction: number;
+        medicalDeduction: number;
+        pensionDeduction: number;
+        total: number;
+        formula: string;
+      };
+      earthquake: {
+        deduction: number;
+        formula: string;
+      };
+    };
     furusatoNozei: {
       limit: number;
       formula: string;
     };
     netIncome: number;
   } {
-    const { tax: incomeTax, medicalDeduction, housingLoanDeduction } = 
-      this.calculateIncomeTax(salary, medicalExpenses, loanBalance);
+    const { tax: incomeTax, medicalDeduction, housingLoanDeduction, insuranceDeductions } = 
+      this.calculateIncomeTax(salary, medicalExpenses, loanBalance, insurances);
     const { tax: residentTax, housingLoanDeduction: residentTaxDeduction } = 
-      this.calculateResidentTax(salary, medicalExpenses, loanBalance, housingLoanDeduction.incomeTaxDeduction);
+      this.calculateResidentTax(salary, medicalExpenses, loanBalance, housingLoanDeduction.incomeTaxDeduction, insurances);
     const insurance = this.calculateInsurance(salary);
     const furusatoNozei = this.calculateFurusatoNozeiLimit(salary, medicalExpenses);
     
@@ -397,6 +613,7 @@ export class TaxCalculator {
           formula: housingLoanDeduction.formula
         }
       },
+      insuranceDeductions,
       furusatoNozei,
       netIncome: salary - incomeTax - residentTax - insurance.total
     };

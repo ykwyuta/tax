@@ -178,10 +178,24 @@ const InsuranceItem = styled.div`
   }
 `;
 
+const Description = styled.p`
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.9rem;
+  color: #666;
+  line-height: 1.4;
+`;
+
 export const TaxCalculator: React.FC = () => {
   const [annualSalary, setAnnualSalary] = useState<number>(0);
   const [medicalExpenses, setMedicalExpenses] = useState<number>(0);
   const [loanBalance, setLoanBalance] = useState<number>(0);
+  const [insurances, setInsurances] = useState({
+    generalLifeInsurance: 0,
+    medicalLifeInsurance: 0,
+    pensionInsurance: 0,
+    earthquakeInsurance: 0,
+    oldLongTermInsurance: 0
+  });
 
   const calculateDeduction = (salary: number): { 
     deduction: number, 
@@ -225,7 +239,12 @@ export const TaxCalculator: React.FC = () => {
     }
   };
 
-  const result = annualSalary > 0 ? TaxCalculatorUtil.calculateNetIncome(annualSalary, medicalExpenses, loanBalance) : null;
+  const result = annualSalary > 0 ? TaxCalculatorUtil.calculateNetIncome(
+    annualSalary,
+    medicalExpenses,
+    loanBalance,
+    insurances
+  ) : null;
   const deductionCalc = annualSalary > 0 ? calculateDeduction(annualSalary) : null;
 
   const getIncomeTaxRate = (taxableIncome: number): {
@@ -295,6 +314,106 @@ export const TaxCalculator: React.FC = () => {
           />
           <Currency>円</Currency>
         </InputWrapper>
+
+        <Label style={{ marginTop: '2rem' }}>生命保険料控除</Label>
+        <Description>
+          一般生命保険料、介護医療保険料、個人年金保険料の各控除額は最大4万円（合計で最大12万円）まで控除できます。
+          支払金額に応じて控除額が計算されます。
+        </Description>
+        <InputWrapper>
+          <Input
+            type="number"
+            value={insurances.generalLifeInsurance}
+            onChange={(e) => setInsurances({
+              ...insurances,
+              generalLifeInsurance: Number(e.target.value)
+            })}
+            min={0}
+            step={1000}
+            placeholder="一般生命保険料を入力"
+          />
+          <Currency>円</Currency>
+        </InputWrapper>
+        <Description>
+          死亡保険や終身保険などの一般的な生命保険の年間支払保険料を入力してください。
+        </Description>
+
+        <InputWrapper style={{ marginTop: '0.5rem' }}>
+          <Input
+            type="number"
+            value={insurances.medicalLifeInsurance}
+            onChange={(e) => setInsurances({
+              ...insurances,
+              medicalLifeInsurance: Number(e.target.value)
+            })}
+            min={0}
+            step={1000}
+            placeholder="介護医療保険料を入力"
+          />
+          <Currency>円</Currency>
+        </InputWrapper>
+        <Description>
+          医療保険や介護保険、がん保険などの医療系保険の年間支払保険料を入力してください。
+        </Description>
+
+        <InputWrapper style={{ marginTop: '0.5rem' }}>
+          <Input
+            type="number"
+            value={insurances.pensionInsurance}
+            onChange={(e) => setInsurances({
+              ...insurances,
+              pensionInsurance: Number(e.target.value)
+            })}
+            min={0}
+            step={1000}
+            placeholder="個人年金保険料を入力"
+          />
+          <Currency>円</Currency>
+        </InputWrapper>
+        <Description>
+          個人年金保険の年間支払保険料を入力してください。企業年金や国民年金は含みません。
+        </Description>
+
+        <Label style={{ marginTop: '1.5rem' }}>地震保険料控除</Label>
+        <Description>
+          地震保険料は支払保険料の全額（上限5万円）が控除されます。
+          旧長期損害保険料は契約時期により、最大1万円まで控除できます。
+        </Description>
+        <InputWrapper>
+          <Input
+            type="number"
+            value={insurances.earthquakeInsurance}
+            onChange={(e) => setInsurances({
+              ...insurances,
+              earthquakeInsurance: Number(e.target.value)
+            })}
+            min={0}
+            step={1000}
+            placeholder="地震保険料を入力"
+          />
+          <Currency>円</Currency>
+        </InputWrapper>
+        <Description>
+          地震保険の年間支払保険料を入力してください。火災保険に付帯する地震保険も含みます。
+        </Description>
+
+        <InputWrapper style={{ marginTop: '0.5rem' }}>
+          <Input
+            type="number"
+            value={insurances.oldLongTermInsurance}
+            onChange={(e) => setInsurances({
+              ...insurances,
+              oldLongTermInsurance: Number(e.target.value)
+            })}
+            min={0}
+            step={1000}
+            placeholder="旧長期損害保険料を入力"
+          />
+          <Currency>円</Currency>
+        </InputWrapper>
+        <Description>
+          2006年末までに契約した満期返戻金のある長期損害保険の年間支払保険料を入力してください。
+        </Description>
       </InputSection>
 
       {result && deductionCalc && (
@@ -368,6 +487,39 @@ export const TaxCalculator: React.FC = () => {
                 <span>手取り額:</span>
                 <Value>{formatCurrency(result.netIncome)}</Value>
               </ResultItem>
+
+              {(result.insuranceDeductions.life.total > 0 || result.insuranceDeductions.earthquake.deduction > 0) && (
+                <>
+                  <ResultItem>
+                    <span>生命保険料控除（合計）:</span>
+                    <Value>{formatCurrency(result.insuranceDeductions.life.total)}</Value>
+                  </ResultItem>
+                  {result.insuranceDeductions.life.generalDeduction > 0 && (
+                    <ResultItem>
+                      <span>（一般生命保険料控除）:</span>
+                      <Value>{formatCurrency(result.insuranceDeductions.life.generalDeduction)}</Value>
+                    </ResultItem>
+                  )}
+                  {result.insuranceDeductions.life.medicalDeduction > 0 && (
+                    <ResultItem>
+                      <span>（介護医療保険料控除）:</span>
+                      <Value>{formatCurrency(result.insuranceDeductions.life.medicalDeduction)}</Value>
+                    </ResultItem>
+                  )}
+                  {result.insuranceDeductions.life.pensionDeduction > 0 && (
+                    <ResultItem>
+                      <span>（個人年金保険料控除）:</span>
+                      <Value>{formatCurrency(result.insuranceDeductions.life.pensionDeduction)}</Value>
+                    </ResultItem>
+                  )}
+                  {result.insuranceDeductions.earthquake.deduction > 0 && (
+                    <ResultItem>
+                      <span>地震保険料控除:</span>
+                      <Value>{formatCurrency(result.insuranceDeductions.earthquake.deduction)}</Value>
+                    </ResultItem>
+                  )}
+                </>
+              )}
             </ResultGrid>
           </ResultSection>
 
@@ -484,6 +636,22 @@ export const TaxCalculator: React.FC = () => {
                 </Formula>
               </ProcessStep>
             )}
+
+            {(result.insuranceDeductions.life.total > 0 || result.insuranceDeductions.earthquake.deduction > 0) && (
+              <ProcessStep>
+                <h4>{result.medicalExpenses > 0 ? '4' : '3'}. 保険料控除の計算</h4>
+                {result.insuranceDeductions.life.total > 0 && (
+                  <Formula>
+                    {result.insuranceDeductions.life.formula}
+                  </Formula>
+                )}
+                {result.insuranceDeductions.earthquake.deduction > 0 && (
+                  <Formula>
+                    {result.insuranceDeductions.earthquake.formula}
+                  </Formula>
+                )}
+              </ProcessStep>
+            )}
           </CalculationProcess>
 
           <Note>
@@ -494,6 +662,8 @@ export const TaxCalculator: React.FC = () => {
             <br />・厚生年金保険料率：18.3%
             <br />・雇用保険料率：0.9%（一般の事業の場合）
             <br />・医療費控除は実額控除方式（セルフメディケーション税制は考慮していません）
+            <br />・生命保険料控除は一般生命保険料、介護医療保険料、個人年金保険料それぞれ最大4万円（合計最大12万円）
+            <br />・地震保険料控除は支払保険料の全額（上限5万円）
             <br />・住宅ローン控除は借入残高の1%（上限40万円）
             <br />・住宅ローン控除の住民税控除部分は上限13.65万円
             <br />・ふるさと納税の限度額は、所得税と住民税の課税所得金額をもとに計算しています
