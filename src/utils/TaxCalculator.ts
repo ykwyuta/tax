@@ -574,9 +574,40 @@ export class TaxCalculator {
    * ふるさと納税の限度額を計算
    * @param salary 年間給与収入
    * @param medicalExpenses 年間医療費
+   * @param insurances 保険料情報
+   * @param dependents 扶養親族の情報
    * @returns ふるさと納税の限度額と計算式
    */
-  public static calculateFurusatoNozeiLimit(salary: number, medicalExpenses: number = 0): {
+  public static calculateFurusatoNozeiLimit(
+    salary: number,
+    medicalExpenses: number = 0,
+    insurances: {
+      generalLifeInsurance: number;
+      medicalLifeInsurance: number;
+      pensionInsurance: number;
+      earthquakeInsurance: number;
+      oldLongTermInsurance: number;
+    } = {
+      generalLifeInsurance: 0,
+      medicalLifeInsurance: 0,
+      pensionInsurance: 0,
+      earthquakeInsurance: 0,
+      oldLongTermInsurance: 0
+    },
+    dependents: {
+      spouse: boolean;
+      spouseIncome: number;
+      elderly: number;
+      specific: number;
+      general: number;
+    } = {
+      spouse: false,
+      spouseIncome: 0,
+      elderly: 0,
+      specific: 0,
+      general: 0
+    }
+  ): {
     limit: number;
     formula: string;
   } {
@@ -584,18 +615,59 @@ export class TaxCalculator {
     const salaryDeduction = this.calculateSalaryDeduction(salary);
     // 給与所得
     const taxableIncome = salary - salaryDeduction;
+
     // 医療費控除を計算
     const medicalDeduction = this.calculateMedicalDeduction(medicalExpenses, taxableIncome);
 
+    // 生命保険料控除を計算
+    const lifeInsuranceDeduction = this.calculateLifeInsuranceDeduction(
+      insurances.generalLifeInsurance,
+      insurances.medicalLifeInsurance,
+      insurances.pensionInsurance
+    );
+
+    // 地震保険料控除を計算
+    const earthquakeInsuranceDeduction = this.calculateEarthquakeInsuranceDeduction(
+      insurances.earthquakeInsurance,
+      insurances.oldLongTermInsurance
+    );
+
+    // 扶養控除を計算
+    const dependentDeduction = this.calculateDependentDeduction(dependents);
+
+    // デバッグ情報の出力
+    console.log('\n=== ふるさと納税の限度額計算（詳細） ===');
+    console.log(`給与収入: ${salary.toLocaleString()}円`);
+    console.log(`給与所得控除額: ${salaryDeduction.toLocaleString()}円`);
+    console.log(`課税所得: ${taxableIncome.toLocaleString()}円`);
+    console.log(`医療費控除額: ${medicalDeduction.deduction.toLocaleString()}円`);
+    console.log(`生命保険料控除額: ${lifeInsuranceDeduction.total.toLocaleString()}円`);
+    console.log(`地震保険料控除額: ${earthquakeInsuranceDeduction.deduction.toLocaleString()}円`);
+    console.log(`扶養控除額: ${dependentDeduction.total.toLocaleString()}円`);
+
     // 所得税の課税所得金額（基礎控除48万円）
-    const incomeTaxBase = Math.max(0, taxableIncome - 480_000 - medicalDeduction.deduction);
+    const incomeTaxBase = Math.max(0, taxableIncome - 480_000 
+      - medicalDeduction.deduction
+      - lifeInsuranceDeduction.total
+      - earthquakeInsuranceDeduction.deduction
+      - dependentDeduction.total);
+
     // 住民税の課税所得金額（基礎控除43万円）
-    const residentTaxBase = Math.max(0, taxableIncome - 430_000 - medicalDeduction.deduction);
+    const residentTaxBase = Math.max(0, taxableIncome - 430_000 
+      - medicalDeduction.deduction
+      - lifeInsuranceDeduction.total
+      - earthquakeInsuranceDeduction.deduction
+      - dependentDeduction.total);
+
+    console.log(`所得税の課税所得金額: ${incomeTaxBase.toLocaleString()}円`);
+    console.log(`住民税の課税所得金額: ${residentTaxBase.toLocaleString()}円`);
 
     // 限度額の計算
     const incomeTaxPortion = incomeTaxBase * 0.004;  // 所得税分 0.4%
     const residentTaxPortion = residentTaxBase * 0.006;  // 住民税分 0.6%
     const limit = Math.floor((incomeTaxPortion + residentTaxPortion) * 2);
+
+    console.log(`限度額: ${limit.toLocaleString()}円\n`);
 
     return {
       limit,
@@ -707,7 +779,7 @@ export class TaxCalculator {
     const { tax: residentTax, housingLoanDeduction: residentTaxDeduction } = 
       this.calculateResidentTax(salary, medicalExpenses, loanBalance, housingLoanDeduction.incomeTaxDeduction, insurances);
     const insurance = this.calculateInsurance(salary);
-    const furusatoNozei = this.calculateFurusatoNozeiLimit(salary, medicalExpenses);
+    const furusatoNozei = this.calculateFurusatoNozeiLimit(salary, medicalExpenses, insurances, dependents);
     
     return {
       salary,
