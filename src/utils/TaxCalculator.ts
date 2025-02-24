@@ -283,6 +283,7 @@ export class TaxCalculator {
    * @param medicalExpenses 年間医療費
    * @param loanBalance 住宅ローン残高
    * @param insurances 保険料情報
+   * @param dependents 扶養親族の情報
    * @returns 所得税額（復興特別所得税を含む）
    */
   public static calculateIncomeTax(
@@ -301,6 +302,19 @@ export class TaxCalculator {
       pensionInsurance: 0,
       earthquakeInsurance: 0,
       oldLongTermInsurance: 0
+    },
+    dependents: {
+      spouse: boolean;
+      spouseIncome: number;
+      elderly: number;
+      specific: number;
+      general: number;
+    } = {
+      spouse: false,
+      spouseIncome: 0,
+      elderly: 0,
+      specific: 0,
+      general: 0
     }
   ): {
     tax: number;
@@ -350,11 +364,15 @@ export class TaxCalculator {
       insurances.oldLongTermInsurance
     );
 
+    // 扶養控除を計算
+    const dependentDeduction = this.calculateDependentDeduction(dependents);
+
     // 基礎控除（48万円）と各種控除を適用
     const taxableIncomeAfterDeductions = Math.max(0, taxableIncome - 480_000 
       - medicalDeduction.deduction 
       - lifeInsuranceDeduction.total
-      - earthquakeInsuranceDeduction.deduction);
+      - earthquakeInsuranceDeduction.deduction
+      - dependentDeduction.total);
 
     // 税率による所得税額の計算
     let tax = 0;
@@ -398,6 +416,7 @@ export class TaxCalculator {
    * @param loanBalance 住宅ローン残高
    * @param incomeTaxDeduction 所得税で控除された住宅ローン控除額
    * @param insurances 保険料情報
+   * @param dependents 扶養親族の情報
    * @returns 住民税額
    */
   public static calculateResidentTax(
@@ -417,6 +436,19 @@ export class TaxCalculator {
       pensionInsurance: 0,
       earthquakeInsurance: 0,
       oldLongTermInsurance: 0
+    },
+    dependents: {
+      spouse: boolean;
+      spouseIncome: number;
+      elderly: number;
+      specific: number;
+      general: number;
+    } = {
+      spouse: false,
+      spouseIncome: 0,
+      elderly: 0,
+      specific: 0,
+      general: 0
     }
   ): {
     tax: number;
@@ -442,11 +474,15 @@ export class TaxCalculator {
       insurances.oldLongTermInsurance
     );
 
+    // 扶養控除を計算
+    const dependentDeduction = this.calculateDependentDeduction(dependents);
+
     // 基礎控除（43万円）と各種控除を適用
     const taxableIncomeAfterDeductions = Math.max(0, taxableIncome - 430_000 
       - medicalDeduction.deduction
       - lifeInsuranceDeduction.total
-      - earthquakeInsuranceDeduction.deduction);
+      - earthquakeInsuranceDeduction.deduction
+      - dependentDeduction.total);
 
     // 所得割の計算（標準税率：都道府県民税4%、市町村民税6%の合計10%）
     const incomeTax = taxableIncomeAfterDeductions * 0.1;
@@ -681,6 +717,8 @@ export class TaxCalculator {
    * @param medicalExpenses 年間医療費
    * @param loanBalance 住宅ローン残高
    * @param insurances 保険料情報
+   * @param dependents 扶養親族の情報
+   * @param hasSpecialCondition 特別な事情があるか
    * @returns 手取り額（概算）
    */
   public static calculateNetIncome(
@@ -775,9 +813,9 @@ export class TaxCalculator {
     const incomeAdjustment = this.calculateIncomeAdjustmentDeduction(salary, hasSpecialCondition);
 
     const { tax: incomeTax, medicalDeduction, housingLoanDeduction, insuranceDeductions } = 
-      this.calculateIncomeTax(salary, medicalExpenses, loanBalance, insurances);
+      this.calculateIncomeTax(salary, medicalExpenses, loanBalance, insurances, dependents);
     const { tax: residentTax, housingLoanDeduction: residentTaxDeduction } = 
-      this.calculateResidentTax(salary, medicalExpenses, loanBalance, housingLoanDeduction.incomeTaxDeduction, insurances);
+      this.calculateResidentTax(salary, medicalExpenses, loanBalance, housingLoanDeduction.incomeTaxDeduction, insurances, dependents);
     const insurance = this.calculateInsurance(salary);
     const furusatoNozei = this.calculateFurusatoNozeiLimit(salary, medicalExpenses, insurances, dependents);
     
