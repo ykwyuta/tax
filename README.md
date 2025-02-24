@@ -1,50 +1,112 @@
-# React + TypeScript + Vite
+# 給与所得の税金計算ツール
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 概要
+このツールは、給与所得者の所得税・住民税を計算し、手取り額を算出するためのアプリケーションです。
+各種控除（医療費控除、生命保険料控除、地震保険料控除、扶養控除など）を考慮した正確な税額計算が可能です。
 
-Currently, two official plugins are available:
+## 主な機能
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 1. 給与所得控除の計算
+- 年収に応じた控除額の計算
+  - 162.5万円以下: 給与収入 × 40%（上限55万円）
+  - 180万円以下: 給与収入 × 30% + 162,500円
+  - 360万円以下: 給与収入 × 20% + 342,500円
+  - 660万円以下: 給与収入 × 10% + 702,500円
+  - 850万円以下: 給与収入 × 5% + 1,032,500円
+  - 850万円超: 一律1,950,000円（上限）
 
-## Expanding the ESLint configuration
+### 2. 所得税の計算
+課税所得金額に応じた税率の適用：
+- 195万円以下: 5%
+- 330万円以下: 10% - 97,500円
+- 695万円以下: 20% - 427,500円
+- 900万円以下: 23% - 636,000円
+- 1,800万円以下: 33% - 1,536,000円
+- 4,000万円以下: 40% - 2,796,000円
+- 4,000万円超: 45% - 4,796,000円
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+※ 復興特別所得税として所得税額 × 2.1%が追加
 
-- Configure the top-level `parserOptions` property like this:
+### 3. 住民税の計算
+- 基本税率: 10%（都道府県民税4% + 市町村民税6%）
+- 均等割額: 5,000円
+- 基礎控除: 43万円
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+### 4. 各種控除の計算
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+#### 4.1 医療費控除
+- 計算式: 医療費支払額 - min(所得金額 × 5%, 100,000円)
+- 上限額: 200万円
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+#### 4.2 生命保険料控除
+一般生命保険料、介護医療保険料、個人年金保険料それぞれについて：
+- 2万円以下: 全額
+- 4万円以下: 支払額 × 1/2 + 10,000円
+- 8万円以下: 支払額 × 1/4 + 20,000円
+- 8万円超: 一律40,000円
+- 合計額の上限: 12万円
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+#### 4.3 地震保険料控除
+- 地震保険料: 支払保険料の全額（上限5万円）
+- 旧長期損害保険料：
+  - 5,000円以下: 全額
+  - 15,000円以下: 支払額 × 1/2 + 2,500円
+  - 15,000円超: 一律10,000円
+
+#### 4.4 扶養控除
+- 配偶者控除: 38万円（配偶者の所得が48万円以下の場合）
+- 老人扶養控除: 48万円/人（70歳以上）
+- 特定扶養控除: 63万円/人（19〜23歳）
+- 一般扶養控除: 38万円/人（16〜18歳または23〜69歳）
+
+#### 4.5 所得金額調整控除
+- 対象: 年収850万円超で特別な事情がある場合
+- 計算式: (給与収入 - 8,500,000円) × 10%
+
+### 5. 住宅ローン控除
+- 控除額: 住宅ローン残高 × 1%（上限40万円）
+- 所得税から控除しきれない額は住民税から控除（上限13.65万円）
+
+### 6. 社会保険料の計算
+- 健康保険料: 標準報酬月額 × 4.905%（東京都の場合）× 12
+- 厚生年金保険料: 標準報酬月額 × 9.15% × 12
+- 雇用保険料: 給与収入 × 0.9%（一般の事業の場合）
+
+### 7. ふるさと納税の限度額計算
+- 計算式: (所得税の課税所得金額 × 0.4% + 住民税の課税所得金額 × 0.6%) × 2
+
+## 使用方法
+
+1. 年収を入力
+2. 必要に応じて以下の情報を入力：
+   - 年間医療費
+   - 住宅ローン残高
+   - 生命保険料情報
+   - 地震保険料情報
+   - 扶養親族の情報
+   - 特別な事情の有無
+3. 計算結果が自動的に表示されます
+
+## 計算結果の表示内容
+- 年収
+- 所得税額（復興特別所得税込）
+- 住民税額（均等割含む）
+- 社会保険料（健康保険、厚生年金、雇用保険）
+- 各種控除額の内訳
+- ふるさと納税の限度額
+- 最終的な手取り額
+
+## 注意事項
+- 計算結果の正しさについて一切保証しません。正確な計算は税理士に相談してください
+- 東京都在住を前提とした計算（健康保険料率9.81%）
+- 厚生年金保険料率18.3%
+- 雇用保険料率0.9%（一般の事業の場合）
+- 医療費控除は実額控除方式のみ対応
+- 特別な控除や減税は考慮していない
+
+## 開発環境
+- React
+- TypeScript
+- Styled Components
+- Jest（テスト）
+- Vite（ビルドツール）
